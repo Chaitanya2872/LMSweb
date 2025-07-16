@@ -1,0 +1,311 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lead Management Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+ 
+</head>
+ <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+
+<body>
+  <div class="container">
+        <div class="header">
+            <h1>Lead Management System</h1>
+            <div class="user-info" id="userInfo" style="display: none;">
+                <span class="user-badge" id="userBadge"></span>
+                <button class="logout-btn" onclick="logout()">Logout</button>
+                <img src="images/3.png" alt="Dashboard Icon" class="dashboard-icon">
+            </div>
+        </div>
+
+ <div id="registerForm" class="login-form" style="display:none;">
+  <h2>Register</h2>
+  <div class="form-group"><input type="text" id="regFullName" placeholder="Full Name"></div>
+  <div class="form-group"><input type="email" id="regEmail" placeholder="Email"></div>
+  <div class="form-group"><input type="text" id="regMobile" placeholder="Mobile Number"></div>
+  <div class="form-group"><input type="password" id="regPassword" placeholder="Password"></div>
+  <div class="form-group">
+    <select id="regRole">
+      <option value="">Select Role</option>
+      <option value="manager">Manager</option>
+      <option value="salesperson">Salesperson</option>
+    </select>
+  </div>
+  <button onclick="sendOTP()">Send OTP</button>
+
+  <div id="otpSection" style="display:none;">
+    <input type="text" id="regOTP" placeholder="Enter OTP">
+    <button onclick="verifyOTP()">Verify & Register</button>
+  </div>
+  <button onclick="showLogin()">Back to Login</button>
+</div>
+        <!-- Login Form -->
+        <div id="loginForm" class="login-form">
+            <img src="images/CREAM BROWN.png" alt="Company Logo" class="login-logo">
+            <h2>Login</h2>
+            <div class="form-group">
+                <label for="username">Username</label>
+                <input type="text" id="username" placeholder="Enter username">
+            </div>
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" placeholder="Enter password">
+            </div>
+            <div class="form-group">
+                <label for="role">Role</label>
+                <select id="role">
+                    <option value="">Select Role</option>
+                    <option value="manager">Manager</option>
+                    <option value="salesperson">Salesperson</option>
+                </select>
+            </div>
+            <button class="login-btn" onclick="login()">Login</button>
+
+            <p style="text-align: center; margin-top: 16px; color: #ffffff;">
+    Don't have an account? 
+    <a href="#" onclick="showRegister()" style="color: #60a5fa; text-decoration: none;">Register here</a>
+</p>
+        </div>
+
+        <!-- Dashboard Content -->
+        <div id="dashboardContent" class="dashboard-content" style="display: none;">
+            <!-- Navigation Tabs -->
+            <div class="nav-tabs">
+                <button class="nav-tab active" onclick="showTab('overview')">Overview</button>
+                <button class="nav-tab" id="managerTabs" onclick="showTab('assign')">Assign Leads</button>
+                <button class="nav-tab" id="managerTabs2" onclick="showTab('manage')">Manage Leads</button>
+                <button class="nav-tab" onclick="showTab('leads')">My Leads</button>
+            </div>
+
+            <!-- Overview Tab -->
+            <div id="overviewTab" class="tab-content active">
+
+                <!-- Date Filter Section -->
+
+<!-- Analytics Charts Section -->
+<div class="analytics-section">
+    <div class="chart-container">
+        <div class="chart-card">
+            <h3>Lead Status Distribution</h3>
+            <canvas id="statusPieChart"></canvas>
+        </div>
+        <div class="chart-card">
+            <h3>Leads by Salesperson</h3>
+            <canvas id="salespersonBarChart"></canvas>
+        </div>
+    </div>
+</div>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <h4>Total Qualified Leads</h4>
+                        <div class="number" id="totalLeads">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <h4>Assigned Leads</h4>
+                        <div class="number" id="assignedLeads">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <h4>Pending Assignments</h4>
+                        <div class="number" id="pendingLeads">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <h4>Contacted Today</h4>
+                        <div class="number" id="contactedToday">0</div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3>Recent Activities</h3>
+                    <div id="recentActivities">
+                        <p>Loading recent activities...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Assign Leads Tab (Manager Only) -->
+            <div id="assignTab" class="tab-content">
+                <div class="card">
+                    <h3>Assign Qualified Leads</h3>
+                    <div class="form-row">
+                        <div>
+                            <label>Select Salesperson</label>
+                            <select id="salespersonSelect">
+                                <option value="">Select Salesperson</option>
+                                <option value="Jahnavi">Jahnavi</option>
+                                <option value="Harshini">Harshini</option>
+                                <option value="Nikshith">Nikshith</option>
+                            </select>
+                        </div>
+                        <div>
+                            <button class="btn btn-primary" onclick="loadUnassignedLeads()">Load Unassigned Leads</button>
+                        </div>
+                    </div>
+                    
+                    <div id="unassignedLeads">
+                        <p>Click "Load Unassigned Leads" to see available leads for assignment.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Manage Leads Tab (Manager Only) -->
+            <div id="manageTab" class="tab-content">
+                <div class="card">
+                    <h3>Manage All Leads</h3>
+                    <input type="text" class="search-box" id="searchLeads" placeholder="Search leads by name, phone, or Lead ID..." onkeyup="searchLeads()">
+                    
+                    <div class="form-row">
+                        <div>
+                            <label>Filter by Salesperson</label>
+                            <select id="filterSalesperson" onchange="filterLeads()">
+                                <option value="">All Salespersons</option>
+                                <option value="Jahnavi">Jahnavi</option>
+                                <option value="Harshini">Harshini</option>
+                                <option value="Nikshith">Nikshith</option>
+                            </select>
+                        </div>
+                        <div>
+                            <button class="btn btn-success" onclick="syncAllRemarks()">Sync All Remarks</button>
+                        </div>
+                    </div>
+                    
+                    <div id="allLeadsList">
+                        <p>Loading all leads...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- My Leads Tab -->
+            <!-- 1. ADD DATE FILTER TO MY LEADS TAB -->
+<!-- Replace the existing My Leads Tab section with this: -->
+
+<div id="leadsTab" class="tab-content">
+    <div class="card">
+        <h3 id="myLeadsTitle">My Assigned Leads</h3>
+        
+        <!-- Date Filter for My Leads -->
+        <div class="date-filter-controls">
+            <div class="filter-group">
+                <label for="myLeadsDateFilter">Filter by:</label>
+                <select id="myLeadsDateFilter" onchange="applyMyLeadsDateFilter()">
+                    <option value="all">All Time</option>
+                    <option value="today">Today</option>
+                    <option value="week">This Week</option>
+                    <option value="month">This Month</option>
+                    <option value="quarter">This Quarter</option>
+                    <option value="year">This Year</option>
+                    <option value="custom">Custom Range</option>
+                </select>
+            </div>
+            <div class="custom-date-range" id="myLeadsCustomDateRange" style="display: none;">
+                <div class="date-input-group">
+                    <label for="myLeadsStartDate">Start Date:</label>
+                    <input type="date" id="myLeadsStartDate" onchange="applyMyLeadsCustomDateFilter()">
+                </div>
+                <div class="date-input-group">
+                    <label for="myLeadsEndDate">End Date:</label>
+                    <input type="date" id="myLeadsEndDate" onchange="applyMyLeadsCustomDateFilter()">
+                </div>
+            </div>
+        </div>
+        
+        <input type="text" class="search-box" id="searchMyLeads" placeholder="Search my leads..." onkeyup="searchMyLeads()">
+        
+        <div id="myLeadsList">
+            <p>Loading your assigned leads...</p>
+        </div>
+    </div>
+</div>
+        </div>
+    </div>
+
+    <!-- Modal for Lead Details -->
+    <div id="leadModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal()">&times;</span>
+            <h3 id="modalTitle">Lead Details</h3>
+            <div id="modalContent"></div>
+        </div>
+    </div>
+
+    <!-- 1. ADD THIS MODAL HTML AFTER THE EXISTING LEAD MODAL -->
+
+<!-- Modal for Update Remarks -->
+<div id="updateRemarksModal" class="modal">
+    <div class="modal-content remarks-modal">
+        <div class="modal-header">
+            <h3 id="remarksModalTitle">Update Remarks</h3>
+            <span class="close" onclick="closeRemarksModal()">&times;</span>
+        </div>
+        <div class="modal-body">
+            <div class="lead-info-section">
+                <h4>Lead Information</h4>
+                <div id="remarksLeadInfo" class="lead-info-display">
+                    <!-- Lead details will be populated here -->
+                </div>
+            </div>
+            
+            <div class="remarks-section">
+                <h4>Current Remarks</h4>
+                <div id="currentRemarks" class="current-remarks-display">
+                    No remarks available
+                </div>
+                
+                <div class="form-group">
+                    <label for="newRemarks">Add New Remarks:</label>
+                    <textarea id="newRemarks" placeholder="Enter your remarks here..." rows="4"></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label for="remarksStatus">Update Status:</label>
+                    <select id="remarksStatus">
+                        <option value="">Keep Current Status</option>
+                        <option value="contacted">Contacted</option>
+                        <option value="follow-up">Follow-up Required</option>
+                        <option value="interested">Interested</option>
+                        <option value="not-interested">Not Interested</option>
+                        <option value="converted">Converted</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="nextFollowUp">Next Follow-up Date:</label>
+                    <input type="datetime-local" id="nextFollowUp">
+                </div>
+            </div>
+            
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="closeRemarksModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="saveRemarks()">Save Remarks</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal for Reassign Lead -->
+<div id="reassignModal" class="modal">
+    <div class="modal-content">
+        <h3>Reassign Lead</h3>
+        <div id="reassignLeadInfo"></div>
+
+        <div class="form-group">
+            <label for="reassignSalesperson">Select Salesperson:</label>
+            <select id="reassignSalesperson">
+                <option value="">Select Salesperson</option>
+            </select>
+        </div>
+
+        <div class="modal-actions">
+            <button class="btn btn-secondary" onclick="closeReassignModal()">Cancel</button>
+            <button class="btn btn-primary" onclick="confirmReassign()">Confirm Reassign</button>
+        </div>
+    </div>
+</div>
+
+
+ <script src="script.js"></script>
+</body>
+</html>
