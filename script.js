@@ -413,25 +413,34 @@ async function loadRecentActivities() {
     try {
         const activities = await apiRequest('/qualified-leads');
         const recentActivities = activities.slice(-5).reverse(); // Get last 5 activities
-        
         const container = document.getElementById('recentActivities');
-        
+
         if (recentActivities.length === 0) {
             container.innerHTML = '<p>No recent activities</p>';
             return;
         }
+
+        container.innerHTML = recentActivities.map(lead => {
+    const name = lead['Full Name'] || lead.name || 'Client';
+    const property = lead['Property Type'] || lead.propertyType || 'property';
+    const location = lead['Project Location'] || lead.location || 'unspecified location';
+    const timeline = lead['Expected Timeline'] || lead.timeline || 'unspecified timeline';
+    const budgetMatch = lead['Pre-Sales Remarks']?.match(/₹[\d–]+ lakhs?/i);
+    const budget = budgetMatch ? budgetMatch[0] : 'budget not disclosed';
+    const status = lead['Response'] || lead.status || 'No status';
+
+    return `<div class="activity-item">
+        ${name} expressed interest in a ${property} at ${location} — Move-in by ${timeline}, ${budget}. Status: ${status}.
+    </div>`;
+}).join('');
+
         
-        container.innerHTML = recentActivities.map(activity => `
-            <div class="activity-item">
-                <strong>${activity.name}</strong> - ${activity.status}
-                <span class="activity-date">${activity.date || 'No date'}</span>
-            </div>
-        `).join('');
     } catch (error) {
         console.error('Error loading recent activities:', error);
         document.getElementById('recentActivities').innerHTML = '<p>Error loading activities</p>';
     }
 }
+
 
 function showRegister() {
     document.getElementById('loginForm').style.display = 'none';
