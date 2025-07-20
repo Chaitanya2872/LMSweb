@@ -3,7 +3,7 @@
 // ======================
 
 // API Configuration
-const API_BASE_URL = 'https://lmsservice-ehd9.onrender.com/api';
+const API_BASE_URL = 'http://127.0.0.1:3000/api';
 
 // Global state
 let currentUser = null;
@@ -57,6 +57,43 @@ function showLogin() {
   document.getElementById('registerForm').style.display = 'none';
 }
 
+async function verifyOTP() {
+  const fullName = document.getElementById('regFullName').value.trim();
+  const mobile = document.getElementById('regMobile').value.trim();
+  const email = document.getElementById('regEmail').value.trim();
+  const role = document.getElementById('regRole').value.trim();
+  const otp = document.getElementById('regOTP').value.trim();
+  const password = document.getElementById('regPassword').value.trim();
+
+  if (!fullName || !mobile || !email || !role || !otp || !password) {
+    return showNotification('All fields are required for verification', 'error');
+  }
+
+  try {
+    const res = await fetch(`${API_BASE_URL}/verify-otp`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fullName, mobile, email, role, otp, password })
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+
+    sessionStorage.setItem('authToken', data.token);
+    sessionStorage.setItem('currentUser', data.user.name);
+    sessionStorage.setItem('currentRole', data.user.role);
+    sessionStorage.setItem('currentUserId', data.user.id);
+
+    showNotification('Registration & Login successful', 'success');
+    location.reload();
+  } catch (err) {
+    showNotification(err.message, 'error');
+  }
+}
+
+window.verifyOTP = verifyOTP;
+
+
 async function sendOTP() {
   const fullName = document.getElementById('regFullName').value.trim();
   const email = document.getElementById('regEmail').value.trim();
@@ -69,49 +106,31 @@ async function sendOTP() {
   }
 
   try {
-    await fetch(`${API_BASE_URL}/register`, {
+    const response = await fetch(`${API_BASE_URL}/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ fullName, email, mobile, password, role })
     });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Failed to send OTP');
+    }
+
     document.getElementById('otpSection').style.display = 'block';
     showNotification('OTP sent successfully', 'success');
   } catch (err) {
-    showNotification('Failed to send OTP', 'error');
+    showNotification(err.message || 'Failed to send OTP', 'error');
   }
 }
 
-async function verifyOTP() {
-  const fullName = document.getElementById('regFullName').value.trim();
-  const email = document.getElementById('regEmail').value.trim();
-  const mobile = document.getElementById('regMobile').value.trim();
-  const password = document.getElementById('regPassword').value.trim();
-  const role = document.getElementById('regRole').value.trim();
-  const otp = document.getElementById('regOTP').value.trim();
+// ✅ Attach to global window object so HTML onclick can find it
+window.sendOTP = sendOTP;
 
-  if (!otp) return showNotification('Enter OTP', 'error');
 
-  try {
-    const res = await fetch(`${API_BASE_URL}/verify-otp`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fullName, email, mobile, password, role, otp })
-    });
 
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error);
 
-    sessionStorage.setItem('authToken', data.token);
-    sessionStorage.setItem('currentUser', data.user.name);
-    sessionStorage.setItem('currentRole', data.user.role);
-    sessionStorage.setItem('currentUserId', data.user.id);
 
-    showNotification('Registration & Login successful', 'success');
-    location.reload(); // Reload to initialize dashboard
-  } catch (err) {
-    showNotification(err.message, 'error');
-  }
-}
 
 
 // Authentication Functions
@@ -130,9 +149,7 @@ async function login() {
 
         const response = await fetch(`${API_BASE_URL}/login`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ username, password, role })
         });
 
@@ -142,6 +159,11 @@ async function login() {
             throw new Error(data.error || 'Login failed');
         }
 
+        if (data.message === 'Account created and logged in') {
+            showNotification('Account does not exist. Please register first.', 'error');
+            return;
+        }
+
         authToken = data.token;
         currentUser = data.user.name;
         currentRole = data.user.role;
@@ -149,7 +171,7 @@ async function login() {
         sessionStorage.setItem('authToken', authToken);
         sessionStorage.setItem('currentUser', currentUser);
         sessionStorage.setItem('currentRole', currentRole);
-        sessionStorage.setItem('currentUserId', data.user.id); // 🔥 Final fix
+        sessionStorage.setItem('currentUserId', data.user.id);
 
         document.getElementById('loginForm').style.display = 'none';
         document.getElementById('dashboardContent').style.display = 'block';
@@ -168,6 +190,7 @@ async function login() {
         showNotification(error.message || 'Login failed', 'error');
     }
 }
+
 
 function logout() {
     currentUser = null;
@@ -323,21 +346,25 @@ function updateCharts() {
   }
 
   if (currentRole === 'salesperson') {
+
     document.querySelector('.stats-grid').style.display = 'none';
 
-    const assignedCount = allLeads.filter(l => l.status === 'assigned').length;
-    const followupCount = allLeads.filter(l => l.status === 'assigned' && l.remarks).length;
+    const statusCounts = allLeads.reduce((acc, lead) => {
+        const status = (lead.status || 'unknown').toLowerCase();
+        acc[status] = (acc[status] || 0) + 1;
+        return acc;
+    }, {});
 
     window.statusPie = new Chart(pieCtx, {
-      type: 'pie',
-      data: {
-        labels: ['Assigned', 'Followup'],
-        datasets: [{
-          data: [assignedCount, followupCount],
-          backgroundColor: ['#60a5fa', '#34d399']
-        }]
-      },
-      options: { plugins: { legend: { position: 'bottom' } } }
+        type: 'pie',
+        data: {
+            labels: Object.keys(statusCounts),
+            datasets: [{
+                data: Object.values(statusCounts),
+                backgroundColor: ['#60a5fa', '#34d399', '#fbbf24', '#f87171', '#c084fc']
+            }]
+        },
+        options: { plugins: { legend: { position: 'bottom' } } }
     });
 
     const dateCounts = {};
@@ -430,17 +457,9 @@ function stats() {
     }
 }
 
-function sendOTP() {
-    // Add your OTP sending logic here
-    document.getElementById('otpSection').style.display = 'block';
-    alert('OTP sent to your email/phone');
-}
 
-function verifyOTP() {
-    // Add your OTP verification and registration logic here
-    alert('Registration successful!');
-    showLogin();
-}
+
+
 
 async function loadMyLeads() {
     try {
