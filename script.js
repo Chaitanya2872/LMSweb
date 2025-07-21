@@ -47,6 +47,117 @@ async function apiRequest(endpoint, options = {}) {
     }
 }
 
+function applyDateFilter() {
+    const filter = document.getElementById('dateFilter').value;
+    const customRange = document.getElementById('customDateRange');
+
+    if (filter === 'custom') {
+        customRange.style.display = 'flex';
+    } else {
+        customRange.style.display = 'none';
+        currentDateFilter = filter;
+        loadDashboardData();
+    }
+}
+
+function applyCustomDateFilter() {
+    const startDate = document.getElementById('startDate').value;
+    const endDate = document.getElementById('endDate').value;
+
+    if (startDate && endDate) {
+        currentDateFilter = 'custom';
+        customStartDate = startDate;
+        customEndDate = endDate;
+        loadDashboardData();
+    }
+}
+
+function filterLeadsByDate(leads) {
+    if (currentDateFilter === 'all') return leads;
+
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    return leads.filter(lead => {
+        const leadDate = new Date(lead.date || lead.Date);
+        if (isNaN(leadDate)) return false;
+
+        switch (currentDateFilter) {
+            case 'today':
+                return leadDate >= today;
+            case 'week':
+                const weekAgo = new Date(today);
+                weekAgo.setDate(weekAgo.getDate() - 7);
+                return leadDate >= weekAgo;
+            case 'month':
+                const monthAgo = new Date(today);
+                monthAgo.setMonth(monthAgo.getMonth() - 1);
+                return leadDate >= monthAgo;
+            case 'quarter':
+                const quarterAgo = new Date(today);
+                quarterAgo.setMonth(quarterAgo.getMonth() - 3);
+                return leadDate >= quarterAgo;
+            case 'year':
+                const yearAgo = new Date(today);
+                yearAgo.setFullYear(yearAgo.getFullYear() - 1);
+                return leadDate >= yearAgo;
+            case 'custom':
+                const startDate = new Date(customStartDate);
+                const endDate = new Date(customEndDate);
+                return leadDate >= startDate && leadDate <= endDate;
+            default:
+                return true;
+        }
+    });
+}
+
+// Add to DOMContentLoaded
+window.addEventListener('DOMContentLoaded', () => {
+    checkExistingSession();
+    simulateRealTimeUpdates();
+
+    const passwordField = document.getElementById('password');
+    if (passwordField) {
+        passwordField.addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') login();
+        });
+    }
+
+    // Inject enhanced date filter UI into the right of .nav-tabs
+    const header = document.querySelector('.nav-tabs');
+    if (header) {
+        const dateFilterContainer = document.createElement('div');
+        dateFilterContainer.style.marginLeft = 'auto';
+        dateFilterContainer.style.display = 'flex';
+        dateFilterContainer.style.alignItems = 'center';
+        dateFilterContainer.style.gap = '8px';
+        dateFilterContainer.style.padding = '4px 10px';
+        dateFilterContainer.style.borderRadius = '6px';
+        dateFilterContainer.style.backgroundColor = 'rgba(255,255,255,0.08)';
+
+        dateFilterContainer.innerHTML = `
+            <label for="dateFilter" class="date-filter-label">⏳ Filter by:
+</label>
+            <select id="dateFilter" class="date-filter-select" onchange="applyDateFilter()">
+                <option value="all">All Time</option>
+                <option value="today">Today</option>
+                <option value="week">This Week</option>
+                <option value="month">This Month</option>
+                <option value="quarter">This Quarter</option>
+                <option value="year">This Year</option>
+                <option value="custom">Custom Range</option>
+            </select>
+            <div id="customDateRange" class="date-filter-custom">
+                <input type="date" id="startDate" onchange="applyCustomDateFilter()">
+                <input type="date" id="endDate" onchange="applyCustomDateFilter()">
+            </div>
+        `;
+
+        header.appendChild(dateFilterContainer);
+    }
+});
+
+
 function showRegister() {
   document.getElementById('loginForm').style.display = 'none';
   document.getElementById('registerForm').style.display = 'flex';
@@ -135,61 +246,75 @@ window.sendOTP = sendOTP;
 
 // Authentication Functions
 async function login() {
-    const username = document.getElementById('username').value.trim();
+    const username = document.getElementById('username').value;
     const password = document.getElementById('password').value;
     const role = document.getElementById('role').value;
 
     if (!username || !password || !role) {
-        showNotification('Please fill in all fields', 'error');
+        showNotification('Please enter username, password, and role.', 'warning');
         return;
     }
 
     try {
-        showNotification('Logging in...', 'info');
-
-        const response = await fetch(`${API_BASE_URL}/login`, {
+        const res = await fetch(`${API_BASE_URL}/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ username, password, role })
         });
 
-        const data = await response.json();
+        const data = await res.json();
 
-        if (!response.ok) {
-            throw new Error(data.error || 'Login failed');
-        }
-
-        if (data.message === 'Account created and logged in') {
-            showNotification('Account does not exist. Please register first.', 'error');
+        if (data.error) {
+            showNotification(data.error, 'error');
             return;
         }
 
+        // ✅ Correctly capture user info
         authToken = data.token;
         currentUser = data.user.name;
         currentRole = data.user.role;
 
-        sessionStorage.setItem('authToken', authToken);
-        sessionStorage.setItem('currentUser', currentUser);
-        sessionStorage.setItem('currentRole', currentRole);
-        sessionStorage.setItem('currentUserId', data.user.id);
+        localStorage.setItem('authToken', authToken);
+        localStorage.setItem('currentUser', currentUser);
+        localStorage.setItem('currentRole', currentRole);
 
+        // ✅ Fix: correct the element IDs
         document.getElementById('loginForm').style.display = 'none';
         document.getElementById('dashboardContent').style.display = 'block';
-        document.getElementById('userInfo').style.display = 'flex';
+        document.getElementById('userInfo').style.display = 'block';
+
         document.getElementById('userBadge').textContent = `${currentUser} (${currentRole})`;
 
+        // Show/hide manager-only buttons
         const managerTabs = document.querySelectorAll('#managerTabs, #managerTabs2');
         managerTabs.forEach(tab => {
             tab.style.display = currentRole === 'manager' ? 'block' : 'none';
         });
 
+        // Toggle My Leads tab visibility
+        const myLeadsTab = document.querySelector('.nav-tab[onclick="showTab(\'leads\')"]');
+        const myLeadsContent = document.getElementById('leadsTab');
+        if (currentRole === 'manager') {
+            if (myLeadsTab) myLeadsTab.style.display = 'none';
+            if (myLeadsContent) myLeadsContent.style.display = 'none';
+        } else {
+            if (myLeadsTab) myLeadsTab.style.display = 'inline-block';
+            if (myLeadsContent) myLeadsContent.style.display = 'block';
+        }
+
         await loadDashboardData();
-        showNotification('Login successful!', 'success');
 
     } catch (error) {
-        showNotification(error.message || 'Login failed', 'error');
+        console.error('Login failed:', error);
+        showNotification('Login request failed.', 'error');
     }
 }
+
+window.login = login;  // ✅ Ensure it's exposed globally
+
+
+
+
 
 
 function logout() {
@@ -209,21 +334,14 @@ function logout() {
     document.getElementById('role').value = '';
 }
 
-function checkExistingSession() {
-    const token = sessionStorage.getItem('authToken');
-    const user = sessionStorage.getItem('currentUser');
-    const role = sessionStorage.getItem('currentRole');
-    const userId = sessionStorage.getItem('currentUserId');
+async function checkExistingSession() {
+    authToken = localStorage.getItem('authToken');
+    currentUser = localStorage.getItem('currentUser');
+    currentRole = localStorage.getItem('currentRole');
 
-    if (token && user && role) {
-        authToken = token;
-        currentUser = user;
-        currentRole = role;
-        currentUserId = userId; // 🔥 Store globally if needed
-
-        document.getElementById('loginForm').style.display = 'none';
-        document.getElementById('dashboardContent').style.display = 'block';
-        document.getElementById('userInfo').style.display = 'flex';
+    if (authToken && currentUser && currentRole) {
+        document.getElementById('loginContainer').style.display = 'none';
+        document.getElementById('dashboard').style.display = 'block';
         document.getElementById('userBadge').textContent = `${currentUser} (${currentRole})`;
 
         const managerTabs = document.querySelectorAll('#managerTabs, #managerTabs2');
@@ -231,20 +349,32 @@ function checkExistingSession() {
             tab.style.display = currentRole === 'manager' ? 'block' : 'none';
         });
 
-        loadDashboardData();
+        const myLeadsTab = document.querySelector('.nav-tab[onclick="showTab(\'leads\')"]');
+        const myLeadsContent = document.getElementById('leadsTab');
+        if (currentRole === 'manager') {
+            if (myLeadsTab) myLeadsTab.style.display = 'none';
+            if (myLeadsContent) myLeadsContent.style.display = 'none';
+        } else {
+            if (myLeadsTab) myLeadsTab.style.display = 'inline-block';
+            if (myLeadsContent) myLeadsContent.style.display = 'block';
+        }
+
+        await loadDashboardData();
     }
 }
+
 
 
 // Dashboard Functions
 async function loadDashboardData() {
     try {
         await Promise.all([
-            loadStats(),
-            loadRecentActivities(),
-            loadMyLeads(),
-            loadAllLeads()
-        ]);
+    loadStats(),
+    loadRecentActivities(),
+    currentRole !== 'salesperson' ? loadMyLeads() : Promise.resolve(),
+    loadAllLeads()
+]);
+
         
         // Load users for manager
         if (currentRole === 'manager') {
