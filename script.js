@@ -3,7 +3,7 @@
 // ======================
 
 // API Configuration
-const API_BASE_URL = 'http://127.0.0.1:3000/api';
+const API_BASE_URL = 'https://lmsservice-ehd9.onrender.com/api';
 
 // Global state
 let currentUser = null;
